@@ -4,6 +4,8 @@ import ("encoding/xml"
     "fmt"
     "io/ioutil"
     "net/http"
+    "flag"
+    "time"
 )
 
 type countiesStruct struct {
@@ -18,31 +20,42 @@ type countyStruct struct {
 
 
 func main() {
-    resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
-    if err != nil {
-        fmt.Println("A HELP, get failed!")
-    }
+    countyptr := flag.String("County", "Hamilton", "County you want to know the weather for.")
+    minuteptr := flag.Int("Minutes", 15, "How often you want to check for weather updates.")
 
-    defer resp.Body.Close()
-    body, err := ioutil.ReadAll(resp.Body)
+    flag.Parse()
 
-    if err != nil {
-        fmt.Println("Borked http body.")
-    }
+    fmt.Println(*countyptr)
+    fmt.Println(*minuteptr)
 
-    var counties countiesStruct
-    err = xml.Unmarshal(body, &counties)
-    if err != nil {
-        fmt.Println("Unable to unmrashal XML")
-    } else {
-        for _, element := range counties.Counties {
-            if element.County == "Hamilton" {
-                fmt.Println(element.County)
-                fmt.Println(element.Status)
-                fmt.Println(element.Time)
-            }
-
+    for {
+        resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
+        if err != nil {
+            fmt.Println("A HELP, get failed!")
         }
-    }
 
+        defer resp.Body.Close()
+        body, err := ioutil.ReadAll(resp.Body)
+
+        if err != nil {
+            fmt.Println("Borked http body.")
+        }
+
+        var counties countiesStruct
+        err = xml.Unmarshal(body, &counties)
+        if err != nil {
+            fmt.Println("Unable to unmrashal XML")
+        } else {
+            for _, element := range counties.Counties {
+                if element.County == *countyptr {
+                    fmt.Println(element.County)
+                    fmt.Println(element.Status)
+                    fmt.Println(element.Time)
+                }
+
+            }
+        }
+
+        time.Sleep(time.Duration(*minuteptr) * time.Minute)
+    }
 }
