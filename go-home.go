@@ -23,7 +23,9 @@ type countyStruct struct {
 func main() {
     countyptr := flag.String("County", "Hamilton", "County you want to know the weather for.")
     minuteptr := flag.Int("Minutes", 15, "How often you want to check for weather updates.")
-
+    senderemailptr := flag.String("e-mail", "", "e-mail to send notification emails. (Enable less secure apps.)")
+    passwordptr := flag.String("e-mail password", "", "Password for your sending e-mail")
+    recipientemailptr := flag.String("e-mail", "", "e-mail to send notification emails. (Enable less secure apps.)")
     flag.Parse()
 
     fmt.Println(*countyptr)
@@ -52,6 +54,13 @@ func main() {
                     fmt.Println(element.County)
                     fmt.Println(element.Status)
                     fmt.Println(element.Time)
+                    if *senderemailptr != "" {
+                        message := "The county " + element.County +
+                                   " has the weather status of " + element.Status +
+                                   " at " + element.Time
+                        subject := element.County + ": " + element.Status
+                        send(subject, message, *senderemailptr, *passwordptr, *recipientemailptr)
+                    }
                 }
 
             }
@@ -61,14 +70,14 @@ func main() {
     }
 }
 
-func send(body string) {
-    from := "@gmail.com"
-    pass := ""
-    to := "kbburkholder@gmail.com"
+func send(subject string, body string, sender string, password string, recipient string) {
+    from := sender
+    pass := password
+    to := recipient
 
     msg := "From: " + from + "\n" +
         "To: " + to + "\n" +
-        "Subject: Hello there\n\n" +
+        subject +
         body
 
     err := smtp.SendMail("smtp.gmail.com:587",
