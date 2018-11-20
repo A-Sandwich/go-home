@@ -7,6 +7,8 @@ import ("encoding/xml"
     "flag"
     "time"
     "net/smtp"
+    "strings"
+    "log"
 )
 
 type countiesStruct struct {
@@ -29,45 +31,64 @@ type emailStruct struct {
     Subject string
 }
 
+
 func main() {
+    triggerStatuses := []string{"watch", "warning"}
     emailData := parseFlags()
-
+    if emailData.Sender == "" {
+        fmt.Println("Missing sender email address!")
+        log.Fatal("Missing sender email address!")
+    }
+    triggerCounties := strings.Split(strings.ToLower(emailData.County), ",")
     for {
-        resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
-        if err != nil {
-            fmt.Println("A HELP, get failed!")
-        }
-
-        defer resp.Body.Close()
-        body, err := ioutil.ReadAll(resp.Body)
-
-        if err != nil {
-            fmt.Println("Borked http body.")
-        }
-
-        var counties countiesStruct
-        err = xml.Unmarshal(body, &counties)
-        if err != nil {
-            fmt.Println("Unable to unmrashal XML")
-        } else {
-            for _, element := range counties.Counties {
-                if element.County == emailData.County {
-                    fmt.Println(element.County)
-                    fmt.Println(element.Status)
-                    fmt.Println(element.Time)
-                    if emailData.Sender != "" {
-                        emailData.Message = "The county " + element.County +
-                                   " has the weather status of " + element.Status +
-                                   " at " + element.Time
-                        emailData.Subject = element.County + ": " + element.Status
-                        send(emailData)
-                    }
+        counties := retrieveCountyData()
+        for _, element := range counties.Counties {
+            if arrayContains(triggerCounties, strings.ToLower(element.County)) {
+                if arrayContains(triggerStatuses, strings.ToLower(element.Status)) {
+                    emailData.Message = "The county " + element.County +
+                               " has the weather status of " + element.Status +
+                               " at " + element.Time
+                    emailData.Subject = element.County + ": " + element.Status
+                    send(emailData)
                 }
             }
         }
 
         time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
     }
+}
+
+func arrayContains(array []string, value string) bool {
+    for _, element := range array {
+        if element == value {
+            return true
+        }
+    }
+    return false
+}
+
+func retrieveCountyData() countiesStruct {
+    resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
+    if err != nil {
+        fmt.Println("A HELP, get failed!")
+        log.Fatal(err)
+    }
+
+    defer resp.Body.Close()
+    body, err := ioutil.ReadAll(resp.Body)
+
+    if err != nil {
+        fmt.Println("Borked http body.")
+        log.Fatal(err)
+    }
+
+    var counties countiesStruct
+    err = xml.Unmarshal(body, &counties)
+    if err != nil {
+        fmt.Println("Unable to unmrashal XML")
+        log.Fatal(err)
+    }
+    return counties
 }
 
 func send(email emailStruct) {
@@ -81,18 +102,18 @@ func send(email emailStruct) {
         email.Sender, []string{email.Recipient}, []byte(msg))
 
     if err != nil {
-        return
+        log.Fatal(err)
     }
 }
 
 func parseFlags() emailStruct {
     countyptr := flag.String("County", "Hamilton", "County you want to know the weather for.")
     minuteptr := flag.Int("Minutes", 15, "How often you want to check for weather updates.")
-    senderemailptr := flag.String("e-mail", "", "e-mail to send notification emails. (Enable less secure apps.)")
-    passwordptr := flag.String("e-mail password", "", "Password for your sending e-mail")
-    recipientemailptr := flag.String("e-mail", "", "e-mail to send notification emails. (Enable less secure apps.)")
-    flag.Parse()
+    senderemailptr := flag.String("Sender", "", "email to send notification emails. (Enable less secure apps.)")
+    passwordptr := flag.String("Password", "", "Password for your sending e-mail")
+    recipientemailptr := flag.String("Recipient", "", "email to send notification emails. (Enable less secure apps.)")
 
+    flag.Parse()
     return emailStruct{
         Sender: *senderemailptr,
         Password: *passwordptr,
