@@ -10,27 +10,8 @@ import (
 	"net/smtp"
 	"strings"
 	"time"
+    "os"
 )
-
-type countiesStruct struct {
-	Counties []countyStruct `xml:"PLA_BurnBan.dbo.Status"`
-}
-
-type countyStruct struct {
-	Name   string `xml:"county"`
-	Status string `xml:"travel_status"`
-	Time   string `xml:"posted_date"`
-}
-
-type emailStruct struct {
-	Sender            string
-	Password          string
-	Recipient         string
-	MonitoredCounties string
-	MinuteDelta       int
-	Message           string
-	Subject           string
-}
 
 /*
 * This function is my main.
@@ -144,6 +125,7 @@ func send(email emailStruct) {
 * This function parses flags and populates a struct containing the parsed data.
  */
 func parseFlags() emailStruct {
+    envVarparseEnvironmentVariables()
 	countyptr := flag.String("MonitoredCounties",
 		"Hamilton",
 		"MonitoredCounties you want to know the weather"+
@@ -168,11 +150,45 @@ func parseFlags() emailStruct {
 			" (Enable less secure apps.)")
 
 	flag.Parse()
-	return emailStruct{
+	return emailStruct {
 		Sender:            *senderemailptr,
 		Password:          *passwordptr,
 		Recipient:         *recipientemailptr,
 		MonitoredCounties: *countyptr,
 		MinuteDelta:       *minuteptr,
 	}
+}
+
+func parseEnvironmentVariables() emailStruct {
+    return emailStruct {
+        Sender:            os.Getenv("go-home-sender"),
+        Password:          os.Getenv("go-home-password"),
+        Recipient:         os.Getenv("go-home-recipient"),
+        MonitoredCounties: os.Getenv("go-home-counties"),
+        MinuteDelta:       os.Getenv("go-home-minutes"),
+    }
+}
+
+func getEnvVar(key string, val byte) {
+    os.LookupEnv(key)
+}
+
+type countiesStruct struct {
+	Counties []countyStruct `xml:"PLA_BurnBan.dbo.Status"`
+}
+
+type countyStruct struct {
+	Name   string `xml:"county"`
+	Status string `xml:"travel_status"`
+	Time   string `xml:"posted_date"`
+}
+
+type emailStruct struct {
+	Sender            string
+	Password          string
+	Recipient         string
+	MonitoredCounties string
+	MinuteDelta       int
+	Message           string
+	Subject           string
 }
