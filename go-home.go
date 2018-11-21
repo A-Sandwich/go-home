@@ -1,124 +1,178 @@
 package main
 
-import ("encoding/xml"
-    "fmt"
-    "io/ioutil"
-    "net/http"
-    "flag"
-    "time"
-    "net/smtp"
-    "strings"
-    "log"
+import (
+	"encoding/xml"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/smtp"
+	"strings"
+	"time"
 )
 
 type countiesStruct struct {
-    Counties []countyStruct `xml:"PLA_BurnBan.dbo.Status"`
+	Counties []countyStruct `xml:"PLA_BurnBan.dbo.Status"`
 }
 
 type countyStruct struct {
-    County string `xml:"county"`
-    Status string `xml:"travel_status"`
-    Time string `xml:"posted_date"`
+	Name   string `xml:"county"`
+	Status string `xml:"travel_status"`
+	Time   string `xml:"posted_date"`
 }
 
 type emailStruct struct {
-    Sender string
-    Password string
-    Recipient string
-    County string
-    MinuteDelta int
-    Message string
-    Subject string
+	Sender            string
+	Password          string
+	Recipient         string
+	MonitoredCounties string
+	MinuteDelta       int
+	Message           string
+	Subject           string
 }
 
-
+/*
+* This function is my main.
+* Function iterates over and county checks and sleeps
+ */
 func main() {
-    triggerStatuses := []string{"watch", "warning"}
-    emailData := parseFlags()
-    if emailData.Sender == "" {
-        fmt.Println("Missing sender email address!")
-        log.Fatal("Missing sender email address!")
-    }
-    triggerCounties := strings.Split(strings.ToLower(emailData.County), ",")
-    for {
-        counties := retrieveCountyData()
-        for _, element := range counties.Counties {
-            if arrayContains(triggerCounties, strings.ToLower(element.County)) {
-                if arrayContains(triggerStatuses, strings.ToLower(element.Status)) {
-                    emailData.Message = "The county " + element.County +
-                               " has the weather status of " + element.Status +
-                               " at " + element.Time
-                    emailData.Subject = element.County + ": " + element.Status
-                    send(emailData)
-                }
-            }
-        }
+	emailData := parseFlags()
 
-        time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
-    }
+	if emailData.Sender == "" {
+		fmt.Println("Missing sender email address!")
+		log.Fatal("Missing sender email address!")
+	}
+
+	for {
+		checkMonitoredCountiesWeather(emailData)
+		time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
+	}
 }
 
+/*
+* Function checks county data and sends an email if it is triggered.
+ */
+func checkMonitoredCountiesWeather(emailData emailStruct) {
+	counties := retrieveMonitoredCountiesData()
+	for _, county := range counties.Counties {
+		if areMonitoredCountiesDangerous(county, emailData.MonitoredCounties) {
+			fmt.Println(county.Name + " triggered email with status of '" +
+				county.Status)
+			emailData.Message = "The county " + county.Name +
+				" has the weather status of " + county.Status +
+				" at " + county.Time
+			emailData.Subject = county.Name + ": " + county.Status
+			send(emailData)
+		}
+	}
+	fmt.Println("sleep")
+}
+
+/*
+* Function verifies if a county should trigger an email.
+ */
+func areMonitoredCountiesDangerous(county countyStruct, counties string) bool {
+	triggerStatuses := []string{"watch", "warning"}
+	triggerCounties := strings.Split(strings.ToLower(counties), ",")
+	return arrayContains(triggerCounties,
+		strings.ToLower(county.Name)) &&
+		arrayContains(triggerStatuses, strings.ToLower(county.Status))
+}
+
+/*
+* Function checks if an array contains a string.
+ */
 func arrayContains(array []string, value string) bool {
-    for _, element := range array {
-        if element == value {
-            return true
-        }
-    }
-    return false
+	for _, county := range array {
+		if county == value {
+			return true
+		}
+	}
+	return false
 }
 
-func retrieveCountyData() countiesStruct {
-    resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
-    if err != nil {
-        fmt.Println("A HELP, get failed!")
-        log.Fatal(err)
-    }
+/*
+* Function gets county data from .gov endpoint.
+ */
+func retrieveMonitoredCountiesData() countiesStruct {
+	resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
+	if err != nil {
+		fmt.Println("A HELP, get failed!")
+		log.Fatal(err)
+	}
 
-    defer resp.Body.Close()
-    body, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
 
-    if err != nil {
-        fmt.Println("Borked http body.")
-        log.Fatal(err)
-    }
+	if err != nil {
+		fmt.Println("Borked http body.")
+		log.Fatal(err)
+	}
 
-    var counties countiesStruct
-    err = xml.Unmarshal(body, &counties)
-    if err != nil {
-        fmt.Println("Unable to unmrashal XML")
-        log.Fatal(err)
-    }
-    return counties
+	var counties countiesStruct
+	err = xml.Unmarshal(body, &counties)
+	if err != nil {
+		fmt.Println("Unable to unmrashal XML")
+		log.Fatal(err)
+	}
+	return counties
 }
 
+/*
+* This function sends an email with a counties current status.
+* This function was initially taken from:
+* https://gist.github.com/jpillora/cb46d183eca0710d909a
+* and has been modified for use in this project. Thanks jpillora!
+ */
 func send(email emailStruct) {
-    msg := "From: " + email.Sender + "\n" +
-        "To: " + email.Recipient + "\n" +
-        email.Subject +
-        email.Message
+	msg := "From: " + email.Sender + "\n" +
+		"To: " + email.Recipient + "\n" +
+		"Subject: " + email.Subject + "\n\n" +
+		email.Message
 
-    err := smtp.SendMail("smtp.gmail.com:587",
-        smtp.PlainAuth("", email.Sender, email.Password, "smtp.gmail.com"),
-        email.Sender, []string{email.Recipient}, []byte(msg))
+	err := smtp.SendMail("smtp.gmail.com:587",
+		smtp.PlainAuth("", email.Sender, email.Password, "smtp.gmail.com"),
+		email.Sender, []string{email.Recipient}, []byte(msg))
 
-    if err != nil {
-        log.Fatal(err)
-    }
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
+/*
+* This function parses flags and populates a struct containing the parsed data.
+ */
 func parseFlags() emailStruct {
-    countyptr := flag.String("County", "Hamilton", "County you want to know the weather for.")
-    minuteptr := flag.Int("Minutes", 15, "How often you want to check for weather updates.")
-    senderemailptr := flag.String("Sender", "", "email to send notification emails. (Enable less secure apps.)")
-    passwordptr := flag.String("Password", "", "Password for your sending e-mail")
-    recipientemailptr := flag.String("Recipient", "", "email to send notification emails. (Enable less secure apps.)")
+	countyptr := flag.String("MonitoredCounties",
+		"Hamilton",
+		"MonitoredCounties you want to know the weather"+
+			"for.")
 
-    flag.Parse()
-    return emailStruct{
-        Sender: *senderemailptr,
-        Password: *passwordptr,
-        Recipient: *recipientemailptr,
-        County: *countyptr,
-        MinuteDelta: *minuteptr,
-    }
+	minuteptr := flag.Int("Minutes",
+		15,
+		"How often you want to check for weather updates.")
+
+	senderemailptr := flag.String("Sender",
+		"",
+		"email to send notification emails."+
+			" (Enable less secure apps.)")
+
+	passwordptr := flag.String("Password",
+		"",
+		"Password for your sending e-mail")
+
+	recipientemailptr := flag.String("Recipient",
+		"",
+		"email to send notification emails."+
+			" (Enable less secure apps.)")
+
+	flag.Parse()
+	return emailStruct{
+		Sender:            *senderemailptr,
+		Password:          *passwordptr,
+		Recipient:         *recipientemailptr,
+		MonitoredCounties: *countyptr,
+		MinuteDelta:       *minuteptr,
+	}
 }
