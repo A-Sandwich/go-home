@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
     "os"
+    "strconv"
 )
 
 /*
@@ -125,31 +126,33 @@ func send(email emailStruct) {
 * This function parses flags and populates a struct containing the parsed data.
  */
 func parseFlags() emailStruct {
-    envVarparseEnvironmentVariables()
+    defaultData := parseEnvironmentVariables()
+
 	countyptr := flag.String("MonitoredCounties",
-		"Hamilton",
+		defaultData.MonitoredCounties,
 		"MonitoredCounties you want to know the weather"+
 			"for.")
 
 	minuteptr := flag.Int("Minutes",
-		15,
+		defaultData.MinuteDelta,
 		"How often you want to check for weather updates.")
 
 	senderemailptr := flag.String("Sender",
-		"",
+		defaultData.Sender,
 		"email to send notification emails."+
 			" (Enable less secure apps.)")
 
 	passwordptr := flag.String("Password",
-		"",
+		defaultData.Password,
 		"Password for your sending e-mail")
 
 	recipientemailptr := flag.String("Recipient",
-		"",
+		defaultData.Recipient,
 		"email to send notification emails."+
 			" (Enable less secure apps.)")
 
 	flag.Parse()
+    fmt.Println(*minuteptr)
 	return emailStruct {
 		Sender:            *senderemailptr,
 		Password:          *passwordptr,
@@ -160,17 +163,24 @@ func parseFlags() emailStruct {
 }
 
 func parseEnvironmentVariables() emailStruct {
+    minutesStr := getEnvironmentDefault("GO_HOME_MINUTES", "15")
+    minutes, _ := strconv.ParseInt(minutesStr, 10, 32)
+
     return emailStruct {
-        Sender:            os.Getenv("go-home-sender"),
-        Password:          os.Getenv("go-home-password"),
-        Recipient:         os.Getenv("go-home-recipient"),
-        MonitoredCounties: os.Getenv("go-home-counties"),
-        MinuteDelta:       os.Getenv("go-home-minutes"),
+        Sender:            getEnvironmentDefault("GO_HOME_SENDER", ""),
+        Password:          getEnvironmentDefault("GO_HOME_PASSWORD", ""),
+        Recipient:         getEnvironmentDefault("GO_HOME_RECIPIENT", ""),
+        MonitoredCounties: getEnvironmentDefault("GO_HOME_COUNTIES", "Hamilton"),
+        MinuteDelta:       int(minutes),
     }
 }
 
-func getEnvVar(key string, val byte) {
-    os.LookupEnv(key)
+func getEnvironmentDefault(environmentKey string, defaultValue string) string {
+    value, valid := os.LookupEnv(environmentKey)
+    if valid {
+        return value
+    }
+    return defaultValue
 }
 
 type countiesStruct struct {
