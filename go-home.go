@@ -131,11 +131,11 @@ func parseFlags() emailStruct {
 	countyptr := flag.String("MonitoredCounties",
 		defaultData.MonitoredCounties,
 		"MonitoredCounties you want to know the weather"+
-			"for.")
+			"for. E.G. 'Hamilton' or 'Cass,Whitley'")
 
 	minuteptr := flag.Int("Minutes",
 		defaultData.MinuteDelta,
-		"How often you want to check for weather updates.")
+		"How often you want to check for weather updates in minutes.")
 
 	senderemailptr := flag.String("Sender",
 		defaultData.Sender,
@@ -162,6 +162,9 @@ func parseFlags() emailStruct {
 	}
 }
 
+/*
+* Function parses environment variables and puts them into an emailStruct.
+*/
 func parseEnvironmentVariables() emailStruct {
     minutesStr := getEnvironmentDefault("GO_HOME_MINUTES", "15")
     minutes, _ := strconv.ParseInt(minutesStr, 10, 32)
@@ -170,11 +173,16 @@ func parseEnvironmentVariables() emailStruct {
         Sender:            getEnvironmentDefault("GO_HOME_SENDER", ""),
         Password:          getEnvironmentDefault("GO_HOME_PASSWORD", ""),
         Recipient:         getEnvironmentDefault("GO_HOME_RECIPIENT", ""),
-        MonitoredCounties: getEnvironmentDefault("GO_HOME_COUNTIES", "Hamilton"),
+        MonitoredCounties: getEnvironmentDefault("GO_HOME_COUNTIES",
+                                                 "Hamilton"),
         MinuteDelta:       int(minutes),
     }
 }
 
+/*
+* Function returns environment variable value if it exists, otherwise this
+* function returns the default value passed in.
+*/
 func getEnvironmentDefault(environmentKey string, defaultValue string) string {
     value, valid := os.LookupEnv(environmentKey)
     if valid {
