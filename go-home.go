@@ -22,7 +22,6 @@ func main() {
 	emailData := parseFlags()
 
 	if emailData.Sender == "" {
-		fmt.Println("Missing sender email address!")
 		log.Fatal("Missing sender email address!")
 	}
 
@@ -48,7 +47,6 @@ func checkMonitoredCountiesWeather(emailData emailStruct) {
 			send(emailData)
 		}
 	}
-	fmt.Println("sleep")
 }
 
 /*
@@ -95,7 +93,7 @@ func retrieveMonitoredCountiesData() countiesStruct {
 	var counties countiesStruct
 	err = xml.Unmarshal(body, &counties)
 	if err != nil {
-		fmt.Println("Unable to unmrashal XML")
+		fmt.Println("Unable to unmarshal XML")
 		log.Fatal(err)
 	}
 	return counties
