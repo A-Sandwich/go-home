@@ -25,7 +25,13 @@ func main() {
 		log.Fatal("Missing sender email address!")
 	}
 
+    checkMessage := "Checking "
+    checkMessage += emailData.MonitoredCounties
+    checkMessage += " counties at %s"
+
+
 	for {
+        fmt.Println(fmt.Sprintf(checkMessage, time.Now().String()))
 		checkMonitoredCountiesWeather(emailData)
 		time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
 	}
@@ -150,7 +156,7 @@ func parseFlags() emailStruct {
 			" (Enable less secure apps.)")
 
 	flag.Parse()
-    fmt.Println(*minuteptr)
+
 	return emailStruct {
 		Sender:            *senderemailptr,
 		Password:          *passwordptr,
