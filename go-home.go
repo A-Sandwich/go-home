@@ -8,10 +8,10 @@ import (
 	"log"
 	"net/http"
 	"net/smtp"
+	"os"
+	"strconv"
 	"strings"
 	"time"
-    "os"
-    "strconv"
 )
 
 /*
@@ -25,13 +25,12 @@ func main() {
 		log.Fatal("Missing sender email address!")
 	}
 
-    checkMessage := "Checking "
-    checkMessage += emailData.MonitoredCounties
-    checkMessage += " counties at %s"
-
+	checkMessage := "Checking "
+	checkMessage += emailData.MonitoredCounties
+	checkMessage += " counties at %s"
 
 	for {
-        fmt.Println(fmt.Sprintf(checkMessage, time.Now().String()))
+		fmt.Println(fmt.Sprintf(checkMessage, time.Now().String()))
 		checkMonitoredCountiesWeather(emailData)
 		time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
 	}
@@ -42,6 +41,7 @@ func main() {
  */
 func checkMonitoredCountiesWeather(emailData emailStruct) {
 	counties := retrieveMonitoredCountiesData()
+
 	for _, county := range counties.Counties {
 		if areMonitoredCountiesDangerous(county, emailData.MonitoredCounties) {
 			fmt.Println(county.Name + " triggered email with status of '" +
@@ -98,10 +98,13 @@ func retrieveMonitoredCountiesData() countiesStruct {
 
 	var counties countiesStruct
 	err = xml.Unmarshal(body, &counties)
+
 	if err != nil {
+		fmt.Println(string(body))
+		fmt.Println(err)
 		fmt.Println("Unable to unmarshal XML")
-		log.Fatal(err)
 	}
+
 	return counties
 }
 
@@ -130,7 +133,7 @@ func send(email emailStruct) {
 * This function parses flags and populates a struct containing the parsed data.
  */
 func parseFlags() emailStruct {
-    defaultData := parseEnvironmentVariables()
+	defaultData := parseEnvironmentVariables()
 
 	countyptr := flag.String("MonitoredCounties",
 		defaultData.MonitoredCounties,
@@ -157,7 +160,7 @@ func parseFlags() emailStruct {
 
 	flag.Parse()
 
-	return emailStruct {
+	return emailStruct{
 		Sender:            *senderemailptr,
 		Password:          *passwordptr,
 		Recipient:         *recipientemailptr,
@@ -168,31 +171,31 @@ func parseFlags() emailStruct {
 
 /*
 * Function parses environment variables and puts them into an emailStruct.
-*/
+ */
 func parseEnvironmentVariables() emailStruct {
-    minutesStr := getEnvironmentDefault("GO_HOME_MINUTES", "15")
-    minutes, _ := strconv.ParseInt(minutesStr, 10, 32)
+	minutesStr := getEnvironmentDefault("GO_HOME_MINUTES", "15")
+	minutes, _ := strconv.ParseInt(minutesStr, 10, 32)
 
-    return emailStruct {
-        Sender:            getEnvironmentDefault("GO_HOME_SENDER", ""),
-        Password:          getEnvironmentDefault("GO_HOME_PASSWORD", ""),
-        Recipient:         getEnvironmentDefault("GO_HOME_RECIPIENT", ""),
-        MonitoredCounties: getEnvironmentDefault("GO_HOME_COUNTIES",
-                                                 "Hamilton"),
-        MinuteDelta:       int(minutes),
-    }
+	return emailStruct{
+		Sender:    getEnvironmentDefault("GO_HOME_SENDER", ""),
+		Password:  getEnvironmentDefault("GO_HOME_PASSWORD", ""),
+		Recipient: getEnvironmentDefault("GO_HOME_RECIPIENT", ""),
+		MonitoredCounties: getEnvironmentDefault("GO_HOME_COUNTIES",
+			"Hamilton"),
+		MinuteDelta: int(minutes),
+	}
 }
 
 /*
 * Function returns environment variable value if it exists, otherwise this
 * function returns the default value passed in.
-*/
+ */
 func getEnvironmentDefault(environmentKey string, defaultValue string) string {
-    value, valid := os.LookupEnv(environmentKey)
-    if valid {
-        return value
-    }
-    return defaultValue
+	value, valid := os.LookupEnv(environmentKey)
+	if valid {
+		return value
+	}
+	return defaultValue
 }
 
 type countiesStruct struct {
