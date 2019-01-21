@@ -82,7 +82,9 @@ func arrayContains(array []string, value string) bool {
 * Function gets county data from .gov endpoint.
  */
 func retrieveMonitoredCountiesData() countiesStruct {
+	var counties countiesStruct
 	resp, err := http.Get("https://www.in.gov/ai/dhs/dhs_travel_advisory.txt")
+
 	if err != nil {
 		fmt.Println("A HELP, get failed!")
 		log.Fatal(err)
@@ -91,12 +93,16 @@ func retrieveMonitoredCountiesData() countiesStruct {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 
+	if resp.StatusCode != 200 {
+		fmt.Println(fmt.Sprintf("A %d status code was returned", resp.StatusCode))
+		fmt.Println(string(body))
+		return counties
+	}
 	if err != nil {
 		fmt.Println("Borked http body.")
 		log.Fatal(err)
 	}
 
-	var counties countiesStruct
 	err = xml.Unmarshal(body, &counties)
 
 	if err != nil {
