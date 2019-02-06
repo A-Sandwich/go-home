@@ -87,7 +87,7 @@ func retrieveMonitoredCountiesData() countiesStruct {
 
 	if err != nil {
 		fmt.Println("A HELP, get failed!")
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 
 	defer resp.Body.Close()
@@ -100,7 +100,7 @@ func retrieveMonitoredCountiesData() countiesStruct {
 	}
 	if err != nil {
 		fmt.Println("Borked http body.")
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 
 	err = xml.Unmarshal(body, &counties)
@@ -131,7 +131,8 @@ func send(email emailStruct) {
 		email.Sender, []string{email.Recipient}, []byte(msg))
 
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Failed to send e-mail.")
+		fmt.Println(err)
 	}
 }
 
