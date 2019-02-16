@@ -88,6 +88,7 @@ func retrieveMonitoredCountiesData() countiesStruct {
 	if err != nil {
 		fmt.Println("A HELP, get failed!")
 		fmt.Println(err)
+		return counties
 	}
 
 	defer resp.Body.Close()
