@@ -27,11 +27,22 @@ func main() {
 
 	checkMessage := "Checking "
 	checkMessage += emailData.MonitoredCounties
-	checkMessage += " counties at %s"
+
+	if len(emailData.MonitoredCounties) > 1 {
+		checkMessage += " counties at %s"
+	} else {
+		checkMessage += " county at %s"
+	}
+
+	var countyStatusDangerous map[string]bool
+	var counties = strings.Split(strings.ToLower(emailData.MonitoredCounties), ",")
+	for index := 0; index < len(counties); index++ {
+		countyStatusDangerous[strings.ToLower(counties[index])] = false
+	}
 
 	for {
 		fmt.Println(fmt.Sprintf(checkMessage, time.Now().String()))
-		checkMonitoredCountiesWeather(emailData)
+		checkMonitoredCountiesWeather(emailData, countyStatusDangerous)
 		time.Sleep(time.Duration(emailData.MinuteDelta) * time.Minute)
 	}
 }
@@ -39,18 +50,23 @@ func main() {
 /*
 * Function checks county data and sends an email if it is triggered.
  */
-func checkMonitoredCountiesWeather(emailData emailStruct) {
+func checkMonitoredCountiesWeather(emailData emailStruct, countyStatusDangerous map[string]bool) {
 	counties := retrieveMonitoredCountiesData()
 
 	for _, county := range counties.Counties {
 		if areMonitoredCountiesDangerous(county, emailData.MonitoredCounties) {
-			fmt.Println(county.Name + " triggered email with status of '" +
-				county.Status)
-			emailData.Message = "The county " + county.Name +
-				" has the weather status of " + county.Status +
-				" at " + county.Time
-			emailData.Subject = county.Name + ": " + county.Status
-			send(emailData)
+			if countyStatusDangerous[strings.ToLower(county.Name)] {
+				countyStatusDangerous[strings.ToLower(county.Name)] = false
+			} else {
+				countyStatusDangerous[strings.ToLower(county.Name)] = true
+				fmt.Println(county.Name + " triggered email with status of '" +
+					county.Status)
+				emailData.Message = "The county " + county.Name +
+					" has the weather status of " + county.Status +
+					" at " + county.Time
+				emailData.Subject = county.Name + ": " + county.Status
+				send(emailData)
+			}
 		}
 	}
 }
