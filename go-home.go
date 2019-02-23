@@ -34,8 +34,9 @@ func main() {
 		checkMessage += " county at %s"
 	}
 
-	var countyStatusDangerous map[string]bool
+	countyStatusDangerous := make(map[string]bool)
 	var counties = strings.Split(strings.ToLower(emailData.MonitoredCounties), ",")
+
 	for index := 0; index < len(counties); index++ {
 		countyStatusDangerous[strings.ToLower(counties[index])] = false
 	}
@@ -54,11 +55,10 @@ func checkMonitoredCountiesWeather(emailData emailStruct, countyStatusDangerous 
 	counties := retrieveMonitoredCountiesData()
 
 	for _, county := range counties.Counties {
+        countyName := strings.ToLower(county.Name)
 		if areMonitoredCountiesDangerous(county, emailData.MonitoredCounties) {
-			if countyStatusDangerous[strings.ToLower(county.Name)] {
-				countyStatusDangerous[strings.ToLower(county.Name)] = false
-			} else {
-				countyStatusDangerous[strings.ToLower(county.Name)] = true
+			if !countyStatusDangerous[countyName]{
+				countyStatusDangerous[countyName] = true
 				fmt.Println(county.Name + " triggered email with status of '" +
 					county.Status)
 				emailData.Message = "The county " + county.Name +
@@ -67,7 +67,9 @@ func checkMonitoredCountiesWeather(emailData emailStruct, countyStatusDangerous 
 				emailData.Subject = county.Name + ": " + county.Status
 				send(emailData)
 			}
-		}
+		} else {
+	        countyStatusDangerous[countyName] = false
+        }
 	}
 }
 
